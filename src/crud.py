@@ -2,6 +2,7 @@ from cassandra.cluster import Cluster
 from cassandra.auth import PlainTextAuthProvider
 from datetime import datetime
 import json
+import uuid
 
 def create_connection():
     auth_provider = PlainTextAuthProvider(username='cassandra', password='cassandra')
@@ -9,17 +10,20 @@ def create_connection():
     return cluster.connect('test_pravin')
 
 def create_user(session, first_name, last_name, age, city, email):
-    session.execute("INSERT INTO users (first_name, last_name, age, city, email, created_date) VALUES (%s,%s,%s,%s,%s, %s)", [first_name, last_name, age, city, email, datetime.now()])
+    user_id = uuid.uuid1()
+    session.execute("INSERT INTO users (user_id, first_name, last_name, age, city, email, created_date) VALUES (%s,%s,%s,%s,%s,%s,%s)", 
+    [user_id, first_name, last_name, age, city, email, datetime.now()])
+    return user_id
 
-def get_user(session, first_name):
-    result = session.execute("SELECT * FROM users WHERE first_name = %s", [first_name]).one()
+def get_user(session, user_id):
+    result = session.execute("SELECT * FROM users WHERE user_id = %s", [user_id]).one()
     print(json.dumps(result, indent=4, sort_keys=True, default=str))
     
-def update_user(session, new_age, first_name):
-    session.execute("UPDATE users SET age =%s WHERE first_name = %s", [new_age, first_name])
+def update_user(session, new_age, user_id):
+    session.execute("UPDATE users SET age =%s WHERE user_id = %s", [new_age, user_id])
 
-def delete_user(session, first_name):
-    session.execute("DELETE FROM users WHERE first_name = %s", [first_name])
+def delete_user(session, user_id):
+    session.execute("DELETE FROM users WHERE user_id = %s", [user_id])
 
 def main():
     firstname = "Pravin"
@@ -30,11 +34,11 @@ def main():
     new_age = 21
 
     session = create_connection()
-    create_user(session, firstname, lastname, age, city, email)
-    get_user(session, firstname)
-    update_user(session, new_age, firstname)
-    get_user(session, firstname)
-    delete_user(session, firstname)
+    user_id = create_user(session, firstname, lastname, age, city, email)
+    get_user(session, user_id)
+    update_user(session, new_age, user_id)
+    get_user(session, user_id)
+    delete_user(session, user_id)
 
 if __name__ == "__main__":
     main()
