@@ -1,7 +1,7 @@
 from cassandra.cluster import Cluster
 from cassandra.auth import PlainTextAuthProvider
+from datetime import datetime
 import json
-
 
 def create_connection():
     auth_provider = PlainTextAuthProvider(username='cassandra', password='cassandra')
@@ -9,11 +9,11 @@ def create_connection():
     return cluster.connect('test_pravin')
 
 def create_user(session, first_name, last_name, age, city, email):
-    session.execute("INSERT INTO users (first_name, last_name, age, city, email) VALUES (%s,%s,%s,%s,%s)", [first_name, last_name, age, city, email])
+    session.execute("INSERT INTO users (first_name, last_name, age, city, email, created_date) VALUES (%s,%s,%s,%s,%s, %s)", [first_name, last_name, age, city, email, datetime.now()])
 
 def get_user(session, first_name):
     result = session.execute("SELECT * FROM users WHERE first_name = %s", [first_name]).one()
-    print(json.dumps(result))
+    print(json.dumps(result, indent=4, sort_keys=True, default=str))
     
 def update_user(session, new_age, first_name):
     session.execute("UPDATE users SET age =%s WHERE first_name = %s", [new_age, first_name])
