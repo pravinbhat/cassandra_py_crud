@@ -1,8 +1,21 @@
 from cassandra.cluster import Cluster
 from cassandra.auth import PlainTextAuthProvider
+from cassandra import ConsistencyLevel
 from datetime import datetime
 import json
 import uuid
+import sys
+
+
+def create_prep_stmt(session, qry):
+    try:
+        p_stmt = session.prepare(qry)
+    except:
+        print("Error: ", sys.exc_info()[0], " occurred!!")
+        return
+
+    p_stmt.consistency_level = ConsistencyLevel.QUORUM
+    return p_stmt
 
 def create_connection():
     auth_provider = PlainTextAuthProvider(username='cassandra', password='cassandra')
@@ -10,20 +23,36 @@ def create_connection():
     return cluster.connect('test_pravin')
 
 def create_user(session, first_name, last_name, age, city, email):
+    if not first_name or not last_name or not email:
+        print("first_name and last_name & email are required fields, however one or more of those are missing!!")
+        return
+    user_id = -1
+    p_stmt = create_prep_stmt(session, "INSERT INTO users (user_id, first_name, last_name, age, city, email, created_date) VALUES (?,?,?,?,?,?,?)")
+    if not p_stmt:
+        return
     user_id = uuid.uuid1()
-    session.execute("INSERT INTO users (user_id, first_name, last_name, age, city, email, created_date) VALUES (%s,%s,%s,%s,%s,%s,%s)", 
-    [user_id, first_name, last_name, age, city, email, datetime.now()])
+    session.execute(p_stmt, [user_id, first_name, last_name, age, city, email, datetime.now()])
+    
     return user_id
 
 def get_user(session, user_id):
-    result = session.execute("SELECT * FROM users WHERE user_id = %s", [user_id]).one()
+    p_stmt = create_prep_stmt(session, "SELECT * FROM users WHERE user_id = ?")
+    if not p_stmt:
+        return    
+    result = session.execute(p_stmt, [user_id]).one()
     print(json.dumps(result, indent=4, sort_keys=True, default=str))
     
 def update_user(session, new_age, user_id):
-    session.execute("UPDATE users SET age =%s WHERE user_id = %s", [new_age, user_id])
+    p_stmt = create_prep_stmt(session, "UPDATE users SET age =? WHERE user_id = ?")
+    if not p_stmt:
+        return    
+    session.execute(p_stmt, [new_age, user_id])
 
 def delete_user(session, user_id):
-    session.execute("DELETE FROM users WHERE user_id = %s", [user_id])
+    p_stmt = create_prep_stmt(session, "DELETE FROM users WHERE user_id = ?")
+    if not p_stmt:
+        return    
+    session.execute(p_stmt, [user_id])
 
 def main():
     firstname = "Pravin"
@@ -35,6 +64,10 @@ def main():
 
     session = create_connection()
     user_id = create_user(session, firstname, lastname, age, city, email)
+    if not user_id:
+        print("Exception while inserting record, Exitting !!")
+        return
+    
     get_user(session, user_id)
     update_user(session, new_age, user_id)
     get_user(session, user_id)
